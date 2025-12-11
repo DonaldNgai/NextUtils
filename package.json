@@ -10,6 +10,11 @@
       "import": "./src/index.ts",
       "require": "./src/index.ts",
       "types": "./src/index.ts"
+    },
+    "./server/preferences": {
+      "import": "./src/server/preferences.ts",
+      "require": "./src/server/preferences.ts",
+      "types": "./src/server/preferences.ts"
     }
   },
   "files": [
@@ -39,6 +44,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.3.1",
     "zustand": "^5.0.8"
   },
