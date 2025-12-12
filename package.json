@@ -1,5 +1,5 @@
 {
-  "name": "nextutils",
+  "name": "@repo/next-utils",
   "version": "1.0.0",
   "description": "Next.js utility functions",
   "main": "./src/index.ts",
@@ -49,6 +49,7 @@
     "zustand": "^5.0.8"
   },
   "peerDependencies": {
+    "@auth0/nextjs-auth0": "^4.13.2",
     "@tanstack/react-table": "^8.21.3",
     "react": "^19.1.0"
   },

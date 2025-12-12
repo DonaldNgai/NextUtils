@@ -1,6 +1,7 @@
 export * from './utils';
 export * from './hooks/use-data-table-instance';
 export * from './hooks/use-mobile';
+export * from './auth';
 export * from './types/preferences';
 export * from './stores/preferences-store';
 export * from './stores/preferences-provider';
