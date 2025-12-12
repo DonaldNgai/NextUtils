@@ -17,4 +17,3 @@ export const auth0 = new Auth0Client({
         audience: process.env.AUTH0_API_AUDIENCE,
     }
 });
-
