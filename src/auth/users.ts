@@ -118,3 +118,42 @@ export async function getUserByEmail(email: string): Promise<User | null> {
     return null;
   }
 }
+
+/**
+ * Update user metadata (user-editable data like name, preferences, etc.)
+ * This safely merges with existing user_metadata
+ */
+export async function updateUserMetadata(metadata: Record<string, any>): Promise<boolean> {
+  const auth0User = await getAuth0User();
+  if (!auth0User?.sub) {
+    throw new Error('User not authenticated');
+  }
+
+  try {
+    const managementClient = await getAuth0ManagementClient();
+    
+    // Get existing metadata first to preserve other data
+    const response = await managementClient.users.get({ id: auth0User.sub });
+    const user = response.data;
+    const existingMetadata = user.user_metadata || {};
+    
+    // Merge new metadata with existing
+    await managementClient.users.update(
+      { id: auth0User.sub },
+      { user_metadata: { ...existingMetadata, ...metadata } }
+    );
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating user metadata:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upsert user metadata - updates or creates user_metadata fields
+ * This is an alias for updateUserMetadata for clarity
+ */
+export async function upsertUserMetadata(metadata: Record<string, any>): Promise<boolean> {
+  return updateUserMetadata(metadata);
+}
