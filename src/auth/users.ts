@@ -157,3 +157,44 @@ export async function updateUserMetadata(metadata: Record<string, any>): Promise
 export async function upsertUserMetadata(metadata: Record<string, any>): Promise<boolean> {
   return updateUserMetadata(metadata);
 }
+
+/**
+ * Update user password using Auth0 Management API
+ * This is the recommended method for Auth0 with Next.js
+ */
+export async function updateUserPassword(newPassword: string): Promise<void> {
+  const auth0User = await getAuth0User();
+  if (!auth0User?.sub) {
+    throw new Error('User not authenticated');
+  }
+
+  if (!newPassword || newPassword.length < 8) {
+    throw new Error('Password must be at least 8 characters long');
+  }
+
+  try {
+    // Get Management API client
+    const managementClient = await getAuth0ManagementClient();
+
+    // Get user details to find the connection name
+    const userResponse = await managementClient.users.get({ id: auth0User.sub });
+    const user = userResponse.data;
+    
+    // Get connection name from user's primary identity
+    // Auth0 users have identities array, the primary one is usually at index 0
+    const connection = user.identities?.[0]?.connection || 'Username-Password-Authentication';
+
+    // Update password using Auth0 Management API
+    // Auth0 Management API requires the connection name
+    await managementClient.users.update(
+      { id: auth0User.sub },
+      { 
+        password: newPassword,
+        connection: connection,
+      }
+    );
+  } catch (error) {
+    console.error('Error updating password:', error);
+    throw error;
+  }
+}

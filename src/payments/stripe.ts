@@ -1,11 +1,8 @@
-// import Stripe from 'stripe';
-// import { redirect } from 'next/navigation';
-// import { Team } from '../db/schema';
-// import { getTeamByStripeCustomerId, getUser, updateTeamSubscription } from '../db/queries';
+import Stripe from 'stripe';
 
-// export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-//   apiVersion: '2025-08-27.basil',
-// });
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2024-12-18.acacia',
+});
 
 // export async function createCheckoutSession({
 //   team,
@@ -42,67 +39,47 @@
 //   redirect(session.url!);
 // }
 
-// export async function createCustomerPortalSession(team: Team) {
-//   if (!team.stripeCustomerId || !team.stripeProductId) {
-//     redirect('/pricing');
-//   }
+export async function createCustomerPortalSession(customerId: string) {
+  if (!customerId) {
+    throw new Error('Customer ID is required');
+  }
 
-//   let configuration: Stripe.BillingPortal.Configuration;
-//   const configurations = await stripe.billingPortal.configurations.list();
+  let configuration: Stripe.BillingPortal.Configuration;
+  const configurations = await stripe.billingPortal.configurations.list();
 
-//   if (configurations.data.length > 0) {
-//     configuration = configurations.data[0];
-//   } else {
-//     const product = await stripe.products.retrieve(team.stripeProductId);
-//     if (!product.active) {
-//       throw new Error("Team's product is not active in Stripe");
-//     }
+  if (configurations.data.length > 0) {
+    configuration = configurations.data[0];
+  } else {
+    configuration = await stripe.billingPortal.configurations.create({
+      business_profile: {
+        headline: 'Manage your subscription',
+      },
+      features: {
+        subscription_update: {
+          enabled: true,
+          default_allowed_updates: ['price', 'quantity', 'promotion_code'],
+          proration_behavior: 'create_prorations',
+        },
+        subscription_cancel: {
+          enabled: true,
+          mode: 'at_period_end',
+          cancellation_reason: {
+            enabled: true,
+            options: ['too_expensive', 'missing_features', 'switched_service', 'unused', 'other'],
+          },
+        },
+        payment_method_update: {
+          enabled: true,
+        },
+      },
+    });
+  }
 
-//     const prices = await stripe.prices.list({
-//       product: product.id,
-//       active: true,
-//     });
-//     if (prices.data.length === 0) {
-//       throw new Error("No active prices found for the team's product");
-//     }
-
-//     configuration = await stripe.billingPortal.configurations.create({
-//       business_profile: {
-//         headline: 'Manage your subscription',
-//       },
-//       features: {
-//         subscription_update: {
-//           enabled: true,
-//           default_allowed_updates: ['price', 'quantity', 'promotion_code'],
-//           proration_behavior: 'create_prorations',
-//           products: [
-//             {
-//               product: product.id,
-//               prices: prices.data.map(price => price.id),
-//             },
-//           ],
-//         },
-//         subscription_cancel: {
-//           enabled: true,
-//           mode: 'at_period_end',
-//           cancellation_reason: {
-//             enabled: true,
-//             options: ['too_expensive', 'missing_features', 'switched_service', 'unused', 'other'],
-//           },
-//         },
-//         payment_method_update: {
-//           enabled: true,
-//         },
-//       },
-//     });
-//   }
-
-//   return stripe.billingPortal.sessions.create({
-//     customer: team.stripeCustomerId,
-//     return_url: `${process.env.BASE_URL}/dashboard`,
-//     configuration: configuration.id,
-//   });
-// }
+  return stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: `${process.env.APP_BASE_URL || process.env.AUTH0_BASE_URL || 'http://localhost:3000'}/admin/subscription`,
+  });
+}
 
 // export async function handleSubscriptionChange(subscription: Stripe.Subscription) {
 //   const customerId = subscription.customer as string;
