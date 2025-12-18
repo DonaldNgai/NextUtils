@@ -1,10 +1,10 @@
 import { db } from '../drizzle';
 import { activityLogs, users } from '../schema';
 import { eq, desc } from 'drizzle-orm';
-import { getUser } from './users';
+import { getCurrentUserFullDetails } from '../../auth/users';
 
 export async function getActivityLogs() {
-  const user = await getUser();
+  const user = await getCurrentUserFullDetails();
   if (!user) {
     throw new Error('User not authenticated');
   }

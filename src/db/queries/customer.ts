@@ -1,13 +1,13 @@
 import { db } from '../drizzle';
 import { customers } from '../schema';
 import { eq, sql, desc } from 'drizzle-orm';
-import { getUser } from './users';
+import { getCurrentUserFullDetails } from '../../auth/users';
 
 /**
  * Get customer information for the currently logged-in user by matching email
  */
 export async function getCustomerForCurrentUser() {
-  const user = await getUser();
+  const user = await getCurrentUserFullDetails();
   if (!user || !user.email) {
     return null;
   }

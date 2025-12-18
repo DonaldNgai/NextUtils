@@ -1,7 +1,7 @@
 import { db } from '../drizzle';
 import { equipmentBookings, equipmentSupply, customers } from '../schema';
 import { eq, desc } from 'drizzle-orm';
-import { getUser } from './users';
+import { getCurrentUserFullDetails } from '../../auth/users';
 
 /**
  * Get equipment bookings for a specific user (by email match)
@@ -25,7 +25,7 @@ export async function getEquipmentBookingsForUser(userEmail: string) {
  * Get equipment bookings for the currently logged-in user
  */
 export async function getEquipmentBookingsForCurrentUser() {
-  const user = await getUser();
+  const user = await getCurrentUserFullDetails();
   if (!user || !user.email) {
     return [];
   }

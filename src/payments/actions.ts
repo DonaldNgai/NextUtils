@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { createCheckoutSession, createCustomerPortalSession } from './stripe';
-import { getUser, getTeamForUser } from '../db/queries';
+import { getCurrentUserFullDetails } from '../auth/users';
 
 export async function checkoutAction(formData: FormData) {
   const priceId = formData.get('priceId') as string;
@@ -11,19 +11,18 @@ export async function checkoutAction(formData: FormData) {
     redirect('/pricing');
   }
 
-  const user = await getUser();
-  const team = await getTeamForUser();
+  const user = await getCurrentUserFullDetails();
 
-  await createCheckoutSession({ team, priceId });
+  // await createCheckoutSession({ team, priceId });
 }
 
 export async function customerPortalAction() {
-  const team = await getTeamForUser();
+  // const team = await getTeamForUser();
 
-  if (!team) {
-    redirect('/pricing');
-  }
+  // if (!team) {
+  //   redirect('/pricing');
+  // }
 
-  const portalSession = await createCustomerPortalSession(team);
-  redirect(portalSession.url);
+  // const portalSession = await createCustomerPortalSession(team);
+  // redirect(portalSession.url);
 }
