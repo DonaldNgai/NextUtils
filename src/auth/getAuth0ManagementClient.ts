@@ -1,3 +1,5 @@
+'use server';
+
 import { ManagementClient } from 'auth0';
 
 /**
@@ -9,7 +11,8 @@ import { ManagementClient } from 'auth0';
  * - AUTH0_CLIENT_ID: Management API M2M application client ID
  * - AUTH0_CLIENT_SECRET: Management API M2M application client secret
  */
-export function getAuth0ManagementClient(): ManagementClient {
+export async function getAuth0ManagementClient(): Promise<ManagementClient> {
+
   if (!process.env.AUTH0_DOMAIN) {
     throw new Error('AUTH0_DOMAIN environment variable is required');
   }

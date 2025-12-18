@@ -1,3 +1,5 @@
+'use server';
+
 import { getAuth0User } from './sessionUtils';
 import { getAuth0ManagementClient } from './getAuth0ManagementClient';
 /**
@@ -20,6 +22,13 @@ function convertAuth0UserToUser(
   auth0User: any,
   fallbackUser?: { email?: string; name?: string } | null
 ): User {
+  // Extract teamIds from app_metadata, cast to number array or default to empty array
+  const teamIds = auth0User.app_metadata?.teamIds 
+    ? (Array.isArray(auth0User.app_metadata.teamIds) 
+        ? auth0User.app_metadata.teamIds.map((id: any) => Number(id)).filter((id: number) => !isNaN(id))
+        : [])
+    : [];
+
   return {
     id: auth0User.user_id,
     user_id: auth0User.user_id,
@@ -27,6 +36,7 @@ function convertAuth0UserToUser(
     name: auth0User.name || auth0User.nickname || fallbackUser?.name || null,
     app_metadata: auth0User.app_metadata || null,
     user_metadata: auth0User.user_metadata || null,
+    teamIds,
   };
 }
 
@@ -40,8 +50,9 @@ export async function getCurrentUserFullDetails(): Promise<User | null> {
   }
 
   try {
-    const managementClient = getAuth0ManagementClient();
-    const user = await managementClient.users.get({ id: auth0User.sub });
+    const managementClient = await getAuth0ManagementClient();
+    const response = await managementClient.users.get({ id: auth0User.sub });
+    const user = response.data;
     
     return {
       ...convertAuth0UserToUser(user, auth0User),
@@ -62,9 +73,12 @@ export async function getUserById(userId: string): Promise<User | null> {
     return null;
   }
 
-  try {
-    const managementClient = getAuth0ManagementClient();
-    const user = await managementClient.users.get({ id: userId });
+  try { 
+    console.log('getUserById Server try block');
+    const managementClient = await getAuth0ManagementClient();
+
+    const response = await managementClient.users.get({ id: userId });
+    const user = response.data;
     console.log('user:', user);
     return {
       ...convertAuth0UserToUser(user),
@@ -84,8 +98,11 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   }
 
   try {
-    const managementClient = getAuth0ManagementClient();
-    const users = await managementClient.users.getByEmail(email);
+    const managementClient = await getAuth0ManagementClient();
+    const response = await managementClient.users.getByEmail(email);
+    
+    // getByEmail returns an array directly, not a JSONApiResponse
+    const users = Array.isArray(response) ? response : response.data || [];
     
     if (!users || users.length === 0) {
       return null;
