@@ -3,9 +3,6 @@
 import Stripe from 'stripe';
 import { stripe } from './stripe';
 import { getCurrentUserFullDetails } from '../auth/users';
-import { db } from '../db/drizzle';
-import { teams, teamMembers } from '../db/schema';
-import { eq } from 'drizzle-orm';
 
 export interface SubscriptionDetails {
   id: string;
@@ -61,32 +58,14 @@ export async function getSubscriptionDetails(): Promise<SubscriptionDetails | nu
     return null;
   }
 
+  // Get subscription ID from user's app_metadata
+  const stripeSubscriptionId = user.app_metadata?.stripeSubscriptionId as string | undefined;
+  if (!stripeSubscriptionId) {
+    return null;
+  }
+
   try {
-    // Get user's team
-    const userTeam = await db
-      .select({
-        teamId: teamMembers.teamId,
-      })
-      .from(teamMembers)
-      .innerJoin(teams, eq(teams.id, teamMembers.teamId))
-      .where(eq(teamMembers.userId, Number(user.id)))
-      .limit(1);
-
-    if (userTeam.length === 0 || !userTeam[0].teamId) {
-      return null;
-    }
-
-    const team = await db
-      .select()
-      .from(teams)
-      .where(eq(teams.id, userTeam[0].teamId))
-      .limit(1);
-
-    if (team.length === 0 || !team[0].stripeSubscriptionId) {
-      return null;
-    }
-
-    const subscription = await stripe.subscriptions.retrieve(team[0].stripeSubscriptionId, {
+    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
       expand: ['items.data.price.product'],
     });
 
@@ -105,7 +84,7 @@ export async function getSubscriptionDetails(): Promise<SubscriptionDetails | nu
       currentPeriodStart: (subscription as any).current_period_start * 1000,
       currentPeriodEnd: (subscription as any).current_period_end * 1000,
       cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
-      planName: product.name || team[0].planName || 'Unknown Plan',
+      planName: product.name || (user.app_metadata?.planName as string | undefined) || 'Unknown Plan',
       amount: price.unit_amount || 0,
       currency: price.currency || 'usd',
       interval: price.recurring?.interval || 'month',
@@ -126,39 +105,21 @@ export async function getPaymentHistory(limit: number = 20): Promise<PaymentHist
     return [];
   }
 
+  // Get customer ID from user's app_metadata
+  const stripeCustomerId = user.app_metadata?.stripeCustomerId as string | undefined;
+  if (!stripeCustomerId) {
+    return [];
+  }
+
   try {
-    // Get user's team
-    const userTeam = await db
-      .select({
-        teamId: teamMembers.teamId,
-      })
-      .from(teamMembers)
-      .innerJoin(teams, eq(teams.id, teamMembers.teamId))
-      .where(eq(teamMembers.userId, Number(user.id)))
-      .limit(1);
-
-    if (userTeam.length === 0 || !userTeam[0].teamId) {
-      return [];
-    }
-
-    const team = await db
-      .select()
-      .from(teams)
-      .where(eq(teams.id, userTeam[0].teamId))
-      .limit(1);
-
-    if (team.length === 0 || !team[0].stripeCustomerId) {
-      return [];
-    }
-
     // Get payment intents and invoices for the customer
     const [paymentIntents, invoices] = await Promise.all([
       stripe.paymentIntents.list({
-        customer: team[0].stripeCustomerId,
+        customer: stripeCustomerId,
         limit,
       }),
       stripe.invoices.list({
-        customer: team[0].stripeCustomerId,
+        customer: stripeCustomerId,
         limit,
       }),
     ]);
@@ -167,9 +128,9 @@ export async function getPaymentHistory(limit: number = 20): Promise<PaymentHist
 
     // Add invoices
     for (const invoice of invoices.data) {
-      if (invoice.status === 'paid' && invoice.amount_paid > 0) {
+      if (invoice.status === 'paid' && invoice.amount_paid > 0 && invoice.id) {
         paymentHistory.push({
-          id: invoice.id,
+          id: invoice.id as string,
           amount: invoice.amount_paid,
           currency: invoice.currency,
           status: invoice.status,
@@ -182,14 +143,11 @@ export async function getPaymentHistory(limit: number = 20): Promise<PaymentHist
 
     // Add payment intents that aren't already covered by invoices
     for (const paymentIntent of paymentIntents.data) {
-      if (paymentIntent.status === 'succeeded' && paymentIntent.amount > 0) {
-        // Check if this payment intent is already in the history via invoice
-        const invoiceId = typeof paymentIntent.invoice === 'string' 
-          ? paymentIntent.invoice 
-          : paymentIntent.invoice?.id;
+      if (paymentIntent.status === 'succeeded' && paymentIntent.amount > 0 && paymentIntent.id) {
+        // Check if this payment intent is already in the history
+        // (PaymentIntents used for subscriptions are typically covered by invoices)
         const alreadyIncluded = paymentHistory.some(
-          item => item.id === paymentIntent.id || 
-          (invoiceId && item.id === invoiceId)
+          item => item.id === paymentIntent.id
         );
 
         if (!alreadyIncluded) {
@@ -224,38 +182,20 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
     return [];
   }
 
+  // Get customer ID from user's app_metadata
+  const stripeCustomerId = user.app_metadata?.stripeCustomerId as string | undefined;
+  if (!stripeCustomerId) {
+    return [];
+  }
+
   try {
-    // Get user's team
-    const userTeam = await db
-      .select({
-        teamId: teamMembers.teamId,
-      })
-      .from(teamMembers)
-      .innerJoin(teams, eq(teams.id, teamMembers.teamId))
-      .where(eq(teamMembers.userId, Number(user.id)))
-      .limit(1);
-
-    if (userTeam.length === 0 || !userTeam[0].teamId) {
-      return [];
-    }
-
-    const team = await db
-      .select()
-      .from(teams)
-      .where(eq(teams.id, userTeam[0].teamId))
-      .limit(1);
-
-    if (team.length === 0 || !team[0].stripeCustomerId) {
-      return [];
-    }
-
     const paymentMethods = await stripe.paymentMethods.list({
-      customer: team[0].stripeCustomerId,
+      customer: stripeCustomerId,
       type: 'card',
     });
 
     // Get default payment method from customer
-    const customer = await stripe.customers.retrieve(team[0].stripeCustomerId);
+    const customer = await stripe.customers.retrieve(stripeCustomerId);
     const defaultPaymentMethodId = typeof customer === 'object' && !customer.deleted
       ? customer.invoice_settings?.default_payment_method
       : null;
@@ -288,34 +228,16 @@ export async function getUpcomingPayments(): Promise<UpcomingPayment[]> {
     return [];
   }
 
+  // Get customer ID from user's app_metadata
+  const stripeCustomerId = user.app_metadata?.stripeCustomerId as string | undefined;
+  if (!stripeCustomerId) {
+    return [];
+  }
+
   try {
-    // Get user's team
-    const userTeam = await db
-      .select({
-        teamId: teamMembers.teamId,
-      })
-      .from(teamMembers)
-      .innerJoin(teams, eq(teams.id, teamMembers.teamId))
-      .where(eq(teamMembers.userId, Number(user.id)))
-      .limit(1);
-
-    if (userTeam.length === 0 || !userTeam[0].teamId) {
-      return [];
-    }
-
-    const team = await db
-      .select()
-      .from(teams)
-      .where(eq(teams.id, userTeam[0].teamId))
-      .limit(1);
-
-    if (team.length === 0 || !team[0].stripeCustomerId) {
-      return [];
-    }
-
     // Get upcoming invoices
     const invoices = await stripe.invoices.list({
-      customer: team[0].stripeCustomerId,
+      customer: stripeCustomerId,
       status: 'open',
       limit: 10,
     });

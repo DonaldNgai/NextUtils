@@ -5,4 +5,5 @@ export * from './session';
 export * from './sessionUtils';
 export * from './users';
 export * from './teams';
+export * from './require-auth-server';
 
