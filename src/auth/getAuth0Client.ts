@@ -11,7 +11,7 @@ export const getAuth0Client = async () => {
     clientId: process.env.AUTH0_CLIENT_ID,
     clientSecret: process.env.AUTH0_CLIENT_SECRET,
     appBaseUrl: process.env.APP_BASE_URL,
-    secret: process.env.AUTH0_SECRET,
+    secret: process.env.AUTH_SECRET,
 
     authorizationParameters: {
         // In v4, the AUTH0_SCOPE and AUTH0_AUDIENCE environment variables for API authorized applications are no longer automatically picked up by the SDK.

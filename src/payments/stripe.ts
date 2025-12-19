@@ -48,8 +48,8 @@ export async function createCheckoutSession(priceId: string) {
       },
     ],
     mode: 'subscription',
-    success_url: `${process.env.BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/pricing`,
+    success_url: `${process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/pricing`,
     customer: team?.stripeCustomerId || undefined,
     client_reference_id: user.id?.toString() || user.email || '',
     allow_promotion_codes: true,
@@ -225,7 +225,7 @@ export async function createCustomerPortalSession() {
 
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: team[0].stripeCustomerId,
-    return_url: `${process.env.BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/dashboard`,
+    return_url: `${process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/dashboard`,
     configuration: configuration.id,
   });
 
@@ -288,6 +288,46 @@ export async function handleSubscriptionChange(subscription: Stripe.Subscription
   }
 }
 
+
+/**
+ * Get Stripe prices for display on pricing page
+ */
+export async function getStripePrices() {
+  const prices = await stripe.prices.list({
+    expand: ['data.product'],
+    active: true,
+    type: 'recurring',
+  });
+
+  return prices.data.map(price => ({
+    id: price.id,
+    productId: typeof price.product === 'string' ? price.product : price.product.id,
+    unitAmount: price.unit_amount || 0,
+    currency: price.currency,
+    interval: price.recurring?.interval,
+    trialPeriodDays: price.recurring?.trial_period_days,
+  }));
+}
+
+/**
+ * Get Stripe products for display on pricing page
+ */
+export async function getStripeProducts() {
+  const products = await stripe.products.list({
+    active: true,
+    expand: ['data.default_price'],
+  });
+
+  console.log('Stripe products:', products.data);
+
+  return products.data.map(product => ({
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    defaultPriceId:
+      typeof product.default_price === 'string' ? product.default_price : product.default_price?.id,
+  }));
+}
 
 /**
  * Verify and handle Stripe webhook events
