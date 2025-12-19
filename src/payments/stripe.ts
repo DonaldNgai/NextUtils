@@ -7,6 +7,50 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 /**
+ * Helper function to find or get the Stripe customer ID for a user
+ * First checks app_metadata, then searches Stripe by Auth0 user ID in metadata
+ */
+async function getOrFindStripeCustomerId(
+  userId: string,
+  appMetadata?: Record<string, any> | null
+): Promise<string | undefined> {
+  // First, check if user already has a stripeCustomerId in app_metadata
+  const existingCustomerId = appMetadata?.stripeCustomerId as string | undefined;
+  
+  if (existingCustomerId) {
+    // Verify the customer still exists in Stripe
+    try {
+      const customer = await stripe.customers.retrieve(existingCustomerId);
+      if (typeof customer === 'object' && !customer.deleted) {
+        return existingCustomerId;
+      }
+    } catch (error) {
+      // Customer doesn't exist, continue to search
+      console.log(`Customer ${existingCustomerId} not found in Stripe, searching for existing customer`);
+    }
+  }
+
+  // Search for existing customer by Auth0 user ID in metadata
+  try {
+    const customers = await stripe.customers.search({
+      query: `metadata["auth0UserId"]:"${userId}"`,
+    });
+
+    if (customers.data.length > 0) {
+      const customerId = customers.data[0].id;
+      // Update user's app_metadata with the found customer ID
+      const { ensureStripeCustomerId } = await import('./webhooks/helpers');
+      await ensureStripeCustomerId(userId, customerId);
+      return customerId;
+    }
+  } catch (error) {
+    console.error(`Error searching for Stripe customer by Auth0 user ID:`, error);
+  }
+
+  return undefined;
+}
+
+/**
  * Create a checkout session for subscription (redirects to Stripe hosted checkout)
  */
 export async function createCheckoutSession(priceId: string) {
@@ -15,8 +59,8 @@ export async function createCheckoutSession(priceId: string) {
     redirect(`/pricing?priceId=${priceId}`);
   }
 
-  // Get customer ID from user's app_metadata if it exists
-  const stripeCustomerId = user.app_metadata?.stripeCustomerId as string | undefined;
+  // Get or find Stripe customer ID (checks app_metadata first, then searches Stripe)
+  const stripeCustomerId = await getOrFindStripeCustomerId(user.id, user.email);
 
   // Fetch the price to get trial period days
   const price = await stripe.prices.retrieve(priceId);
@@ -57,8 +101,8 @@ export async function createEmbeddedCheckoutSession(priceId: string) {
     throw new Error('User not authenticated');
   }
 
-  // Get customer ID from user's app_metadata if it exists
-  const stripeCustomerId = user.app_metadata?.stripeCustomerId as string | undefined;
+  // Get or find Stripe customer ID (checks app_metadata first, then searches Stripe)
+  const stripeCustomerId = await getOrFindStripeCustomerId(user.id, user.app_metadata);
 
   // Check if user already has an active or trialing subscription
   if (stripeCustomerId) {
