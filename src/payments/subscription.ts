@@ -30,6 +30,28 @@ export interface PaymentHistoryItem {
   invoiceUrl?: string;
 }
 
+export interface PaymentMethod {
+  id: string;
+  type: string;
+  card?: {
+    brand: string;
+    last4: string;
+    expMonth: number;
+    expYear: number;
+  };
+  isDefault: boolean;
+}
+
+export interface UpcomingPayment {
+  id: string;
+  amount: number;
+  currency: string;
+  dueDate: number;
+  description: string;
+  status: string;
+  invoiceUrl?: string;
+}
+
 /**
  * Get subscription details for the current user
  */
@@ -80,14 +102,14 @@ export async function getSubscriptionDetails(): Promise<SubscriptionDetails | nu
     return {
       id: subscription.id,
       status: subscription.status,
-      currentPeriodStart: subscription.current_period_start,
-      currentPeriodEnd: subscription.current_period_end,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      currentPeriodStart: (subscription as any).current_period_start * 1000,
+      currentPeriodEnd: (subscription as any).current_period_end * 1000,
+      cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
       planName: product.name || team[0].planName || 'Unknown Plan',
       amount: price.unit_amount || 0,
       currency: price.currency || 'usd',
       interval: price.recurring?.interval || 'month',
-      trialEnd: subscription.trial_end || undefined,
+      trialEnd: (subscription as any).trial_end ? (subscription as any).trial_end * 1000 : undefined,
     };
   } catch (error) {
     console.error('Error fetching subscription details:', error);
@@ -162,9 +184,12 @@ export async function getPaymentHistory(limit: number = 20): Promise<PaymentHist
     for (const paymentIntent of paymentIntents.data) {
       if (paymentIntent.status === 'succeeded' && paymentIntent.amount > 0) {
         // Check if this payment intent is already in the history via invoice
+        const invoiceId = typeof paymentIntent.invoice === 'string' 
+          ? paymentIntent.invoice 
+          : paymentIntent.invoice?.id;
         const alreadyIncluded = paymentHistory.some(
           item => item.id === paymentIntent.id || 
-          (paymentIntent.invoice && item.id === String(paymentIntent.invoice))
+          (invoiceId && item.id === invoiceId)
         );
 
         if (!alreadyIncluded) {
@@ -186,6 +211,135 @@ export async function getPaymentHistory(limit: number = 20): Promise<PaymentHist
     return paymentHistory.slice(0, limit);
   } catch (error) {
     console.error('Error fetching payment history:', error);
+    return [];
+  }
+}
+
+/**
+ * Get saved payment methods (cards) for the current user
+ */
+export async function getPaymentMethods(): Promise<PaymentMethod[]> {
+  const user = await getCurrentUserFullDetails();
+  if (!user?.email) {
+    return [];
+  }
+
+  try {
+    // Get user's team
+    const userTeam = await db
+      .select({
+        teamId: teamMembers.teamId,
+      })
+      .from(teamMembers)
+      .innerJoin(teams, eq(teams.id, teamMembers.teamId))
+      .where(eq(teamMembers.userId, Number(user.id)))
+      .limit(1);
+
+    if (userTeam.length === 0 || !userTeam[0].teamId) {
+      return [];
+    }
+
+    const team = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, userTeam[0].teamId))
+      .limit(1);
+
+    if (team.length === 0 || !team[0].stripeCustomerId) {
+      return [];
+    }
+
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: team[0].stripeCustomerId,
+      type: 'card',
+    });
+
+    // Get default payment method from customer
+    const customer = await stripe.customers.retrieve(team[0].stripeCustomerId);
+    const defaultPaymentMethodId = typeof customer === 'object' && !customer.deleted
+      ? customer.invoice_settings?.default_payment_method
+      : null;
+
+    return paymentMethods.data.map((pm) => ({
+      id: pm.id,
+      type: pm.type,
+      card: pm.card
+        ? {
+            brand: pm.card.brand,
+            last4: pm.card.last4,
+            expMonth: pm.card.exp_month,
+            expYear: pm.card.exp_year,
+          }
+        : undefined,
+      isDefault: pm.id === defaultPaymentMethodId || (typeof defaultPaymentMethodId === 'string' && pm.id === defaultPaymentMethodId),
+    }));
+  } catch (error) {
+    console.error('Error fetching payment methods:', error);
+    return [];
+  }
+}
+
+/**
+ * Get upcoming payments/invoices for the current user
+ */
+export async function getUpcomingPayments(): Promise<UpcomingPayment[]> {
+  const user = await getCurrentUserFullDetails();
+  if (!user?.email) {
+    return [];
+  }
+
+  try {
+    // Get user's team
+    const userTeam = await db
+      .select({
+        teamId: teamMembers.teamId,
+      })
+      .from(teamMembers)
+      .innerJoin(teams, eq(teams.id, teamMembers.teamId))
+      .where(eq(teamMembers.userId, Number(user.id)))
+      .limit(1);
+
+    if (userTeam.length === 0 || !userTeam[0].teamId) {
+      return [];
+    }
+
+    const team = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, userTeam[0].teamId))
+      .limit(1);
+
+    if (team.length === 0 || !team[0].stripeCustomerId) {
+      return [];
+    }
+
+    // Get upcoming invoices
+    const invoices = await stripe.invoices.list({
+      customer: team[0].stripeCustomerId,
+      status: 'open',
+      limit: 10,
+    });
+
+    const upcomingPayments: UpcomingPayment[] = invoices.data
+      .filter((invoice): invoice is Stripe.Invoice & { id: string } => 
+        invoice.id !== null && invoice.id !== undefined && typeof invoice.id === 'string'
+      )
+      .map((invoice) => ({
+        id: invoice.id,
+        amount: invoice.amount_due,
+        currency: invoice.currency,
+        dueDate: invoice.due_date ? invoice.due_date * 1000 : invoice.created * 1000,
+        description: invoice.description || `Invoice ${invoice.number || invoice.id}`,
+        status: invoice.status || 'open',
+        invoiceUrl: invoice.hosted_invoice_url || undefined,
+      }));
+
+    // Sort by due date
+    upcomingPayments.sort((a, b) => a.dueDate - b.dueDate);
+
+    return upcomingPayments;
+  } catch (error) {
+    console.error('Error fetching upcoming payments:', error);
     return [];
   }
 }
