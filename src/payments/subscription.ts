@@ -110,7 +110,41 @@ export async function getSubscriptionDetails(): Promise<SubscriptionDetails | nu
     }
 
     if (!subscription) {
-      return null;
+      // No subscription found, return free tier
+      return {
+        id: 'free',
+        status: 'free',
+        currentPeriodStart: Date.now(),
+        currentPeriodEnd: Date.now(),
+        nextPaymentDate: Date.now(),
+        cancelAtPeriodEnd: false,
+        planName: 'Free',
+        amount: 0,
+        currency: 'usd',
+        interval: 'month',
+        paymentMethodUpdateLink: null,
+        subscriptionManagementLink: null,
+      };
+    }
+
+    // Check if subscription is cancelled
+    const subStatus = subscription.status as string;
+    if (subStatus === 'canceled' || subStatus === 'cancelled') {
+      // Subscription is cancelled, return free tier
+      return {
+        id: 'free',
+        status: 'free',
+        currentPeriodStart: Date.now(),
+        currentPeriodEnd: Date.now(),
+        nextPaymentDate: Date.now(),
+        cancelAtPeriodEnd: false,
+        planName: 'Free',
+        amount: 0,
+        currency: 'usd',
+        interval: 'month',
+        paymentMethodUpdateLink: null,
+        subscriptionManagementLink: null,
+      };
     }
 
     // Retrieve subscription with expanded product data if not already expanded
