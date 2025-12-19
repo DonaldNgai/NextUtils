@@ -60,7 +60,7 @@ export async function createCheckoutSession(priceId: string) {
   }
 
   // Get or find Stripe customer ID (checks app_metadata first, then searches Stripe)
-  const stripeCustomerId = await getOrFindStripeCustomerId(user.id, user.email);
+  const stripeCustomerId = await getOrFindStripeCustomerId(user.id, user.app_metadata || null);
 
   // Fetch the price to get trial period days
   const price = await stripe.prices.retrieve(priceId);
@@ -102,7 +102,7 @@ export async function createEmbeddedCheckoutSession(priceId: string) {
   }
 
   // Get or find Stripe customer ID (checks app_metadata first, then searches Stripe)
-  const stripeCustomerId = await getOrFindStripeCustomerId(user.id, user.app_metadata);
+  const stripeCustomerId = await getOrFindStripeCustomerId(user.id, user.app_metadata || null);
 
   // Check if user already has an active or trialing subscription
   if (stripeCustomerId) {
@@ -224,7 +224,80 @@ export async function createRentalCheckoutSession(
 export { handleCheckoutSession } from './webhooks/checkout';
 
 /**
+ * Get or create the Stripe Customer Portal configuration
+ * Supports using a configuration ID from environment variable STRIPE_PORTAL_CONFIGURATION_ID
+ */
+async function getOrCreatePortalConfiguration(): Promise<Stripe.BillingPortal.Configuration> {
+  // Check if a specific configuration ID is provided via environment variable
+  const configIdFromEnv = process.env.STRIPE_PORTAL_CONFIGURATION_ID;
+  if (configIdFromEnv) {
+    try {
+      const configuration = await stripe.billingPortal.configurations.retrieve(configIdFromEnv);
+      return configuration;
+    } catch (error) {
+      console.warn(`Portal configuration ${configIdFromEnv} not found, falling back to default`);
+    }
+  }
+
+  // List existing configurations
+  const configurations = await stripe.billingPortal.configurations.list();
+
+  if (configurations.data.length > 0) {
+    // Use the first available configuration
+    return configurations.data[0];
+  }
+
+  // If no configuration exists, create a default one with all features enabled
+  // Note: This requires at least one product/price to exist in Stripe
+  const products = await stripe.products.list({ active: true, limit: 100 });
+  const allPrices: string[] = [];
+
+  for (const product of products.data) {
+    const prices = await stripe.prices.list({
+      product: product.id,
+      active: true,
+      limit: 100,
+    });
+    allPrices.push(...prices.data.map(p => p.id));
+  }
+
+  const configuration = await stripe.billingPortal.configurations.create({
+    business_profile: {
+      headline: 'Manage your subscription',
+    },
+    features: {
+      subscription_update: {
+        enabled: true,
+        default_allowed_updates: ['price', 'quantity', 'promotion_code'],
+        proration_behavior: 'create_prorations',
+      },
+      subscription_cancel: {
+        enabled: true,
+        mode: 'at_period_end',
+        cancellation_reason: {
+          enabled: true,
+          options: ['too_expensive', 'missing_features', 'switched_service', 'unused', 'other'],
+        },
+      },
+      payment_method_update: {
+        enabled: true,
+      },
+      invoice_history: {
+        enabled: true,
+      },
+      customer_update: {
+        enabled: true,
+        allowed_updates: ['email', 'address', 'phone', 'tax_id'],
+      },
+    },
+  });
+
+  return configuration;
+}
+
+/**
  * Create a customer portal session for managing subscription
+ * Uses Stripe's Customer Portal to handle all subscription and payment management
  */
 export async function createCustomerPortalSession() {
   const user = await getCurrentUserFullDetails();
@@ -238,72 +311,61 @@ export async function createCustomerPortalSession() {
     redirect('/pricing');
   }
 
-  // Get product ID from user's app_metadata
-  const stripeProductId = user.app_metadata?.stripeProductId as string | undefined;
+  // Get the portal configuration
+  const configuration = await getOrCreatePortalConfiguration();
 
-  let configuration: Stripe.BillingPortal.Configuration;
-  const configurations = await stripe.billingPortal.configurations.list();
-
-  if (configurations.data.length > 0) {
-    configuration = configurations.data[0];
-  } else {
-    if (!stripeProductId) {
-      throw new Error("User's product ID is not set");
-    }
-
-    const product = await stripe.products.retrieve(stripeProductId);
-    if (!product.active) {
-      throw new Error("User's product is not active in Stripe");
-    }
-
-    const prices = await stripe.prices.list({
-      product: product.id,
-      active: true,
-    });
-    if (prices.data.length === 0) {
-      throw new Error("No active prices found for the user's product");
-    }
-
-    configuration = await stripe.billingPortal.configurations.create({
-      business_profile: {
-        headline: 'Manage your subscription',
-      },
-      features: {
-        subscription_update: {
-          enabled: true,
-          default_allowed_updates: ['price', 'quantity', 'promotion_code'],
-          proration_behavior: 'create_prorations',
-          products: [
-            {
-              product: product.id,
-              prices: prices.data.map(price => price.id),
-            },
-          ],
-        },
-        subscription_cancel: {
-          enabled: true,
-          mode: 'at_period_end',
-          cancellation_reason: {
-            enabled: true,
-            options: ['too_expensive', 'missing_features', 'switched_service', 'unused', 'other'],
-          },
-        },
-        payment_method_update: {
-          enabled: true,
-        },
-      },
-    });
-  }
-
+  // Create a portal session
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: stripeCustomerId,
-    return_url: `${process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/dashboard`,
+    return_url: `${process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/admin/payments`,
     configuration: configuration.id,
   });
 
+  // Redirect to Stripe's hosted Customer Portal
   redirect(portalSession.url);
 }
 
+/**
+ * Get customer portal session URL for payment method updates (returns URL without redirecting)
+ * Uses Stripe's Customer Portal to handle payment method management
+ */
+export async function getPaymentMethodUpdateLink(): Promise<string | null> {
+  const user = await getCurrentUserFullDetails();
+  if (!user) {
+    return null;
+  }
+
+  // Get customer ID from user's app_metadata
+  const stripeCustomerId = user.app_metadata?.stripeCustomerId as string | undefined;
+  if (!stripeCustomerId) {
+    return null;
+  }
+
+  try {
+    // Get the portal configuration
+    const configuration = await getOrCreatePortalConfiguration();
+
+    // Create a portal session
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: stripeCustomerId,
+      return_url: `${process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/admin/payments`,
+      configuration: configuration.id,
+    });
+
+    return portalSession.url;
+  } catch (error) {
+    console.error('Error creating customer portal session:', error);
+    return null;
+  }
+}
+
+/**
+ * Get customer portal session URL for subscription management (returns URL without redirecting)
+ */
+export async function getSubscriptionManagementLink(): Promise<string | null> {
+  // Same as payment method update link - both use the customer portal
+  return getPaymentMethodUpdateLink();
+}
 
 /**
  * Get Stripe prices for display on pricing page

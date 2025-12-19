@@ -1,7 +1,7 @@
 'use server';
 
 import Stripe from 'stripe';
-import { stripe } from './stripe';
+import { stripe, getPaymentMethodUpdateLink, getSubscriptionManagementLink } from './stripe';
 import { getCurrentUserFullDetails } from '../auth/users';
 
 export interface SubscriptionDetails {
@@ -9,12 +9,15 @@ export interface SubscriptionDetails {
   status: string;
   currentPeriodStart: number;
   currentPeriodEnd: number;
+  nextPaymentDate: number;
   cancelAtPeriodEnd: boolean;
   planName: string;
   amount: number;
   currency: string;
   interval: string;
   trialEnd?: number;
+  paymentMethodUpdateLink?: string | null;
+  subscriptionManagementLink?: string | null;
 }
 
 export interface PaymentHistoryItem {
@@ -58,16 +61,64 @@ export async function getSubscriptionDetails(): Promise<SubscriptionDetails | nu
     return null;
   }
 
-  // Get subscription ID from user's app_metadata
-  const stripeSubscriptionId = user.app_metadata?.stripeSubscriptionId as string | undefined;
-  if (!stripeSubscriptionId) {
+  // Get customer ID from user's app_metadata
+  const stripeCustomerId = user.app_metadata?.stripeCustomerId as string | undefined;
+  if (!stripeCustomerId) {
     return null;
   }
 
   try {
-    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
-      expand: ['items.data.price.product'],
-    });
+    // First try to get subscription from app_metadata
+    const stripeSubscriptionId = user.app_metadata?.stripeSubscriptionId as string | undefined;
+    
+    let subscription: Stripe.Subscription | null = null;
+    
+    if (stripeSubscriptionId) {
+      try {
+        subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
+          expand: ['items.data.price.product'],
+        });
+        // Verify it's still active and belongs to this customer
+        if (subscription.customer !== stripeCustomerId || 
+            (subscription.status !== 'active' && subscription.status !== 'trialing')) {
+          subscription = null; // Subscription ID is stale, search by customer
+        }
+      } catch (error) {
+        // Subscription ID might be invalid, search by customer
+        console.log('Subscription ID from metadata not found, searching by customer ID');
+        subscription = null;
+      }
+    }
+
+    // If no subscription found from metadata, search by customer ID
+    if (!subscription) {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        status: 'all',
+        limit: 10,
+      });
+
+      // Find the most recent active or trialing subscription
+      subscription = subscriptions.data.find(
+        (sub) => sub.status === 'active' || sub.status === 'trialing'
+      ) || null;
+
+      // If no active subscription, get the most recent one
+      if (!subscription && subscriptions.data.length > 0) {
+        subscription = subscriptions.data[0];
+      }
+    }
+
+    if (!subscription) {
+      return null;
+    }
+
+    // Retrieve subscription with expanded product data if not already expanded
+    if (!subscription.items.data[0]?.price?.product || typeof subscription.items.data[0]?.price?.product === 'string') {
+      subscription = await stripe.subscriptions.retrieve(subscription.id, {
+        expand: ['items.data.price.product'],
+      });
+    }
 
     const price = subscription.items.data[0]?.price;
     if (!price) {
@@ -78,17 +129,53 @@ export async function getSubscriptionDetails(): Promise<SubscriptionDetails | nu
       ? await stripe.products.retrieve(price.product)
       : price.product as Stripe.Product;
 
+    // Access subscription period properties safely
+    const sub = subscription as any; // Type assertion for subscription properties
+    const currentPeriodStart = sub.current_period_start 
+      ? sub.current_period_start * 1000 
+      : Date.now();
+    const currentPeriodEnd = sub.current_period_end 
+      ? sub.current_period_end * 1000 
+      : Date.now();
+    
+    // Get the next payment date directly from the subscription
+    // The next payment is calculated as: current_period_end + recurring interval
+    const interval = price.recurring?.interval || 'month';
+    const intervalCount = price.recurring?.interval_count || 1;
+    
+    // Calculate next payment date by adding the interval to current period end
+    const nextDate = new Date(currentPeriodEnd);
+    if (interval === 'month') {
+      nextDate.setMonth(nextDate.getMonth() + intervalCount);
+    } else if (interval === 'year') {
+      nextDate.setFullYear(nextDate.getFullYear() + intervalCount);
+    } else if (interval === 'day') {
+      nextDate.setDate(nextDate.getDate() + intervalCount);
+    } else if (interval === 'week') {
+      nextDate.setDate(nextDate.getDate() + (intervalCount * 7));
+    }
+    const nextPaymentDate = nextDate.getTime();
+    
+    // Get payment method update and subscription management links
+    const [paymentMethodUpdateLink, subscriptionManagementLink] = await Promise.all([
+      getPaymentMethodUpdateLink(),
+      getSubscriptionManagementLink(),
+    ]);
+    
     return {
       id: subscription.id,
       status: subscription.status,
-      currentPeriodStart: (subscription as any).current_period_start * 1000,
-      currentPeriodEnd: (subscription as any).current_period_end * 1000,
-      cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
+      currentPeriodStart: currentPeriodStart,
+      currentPeriodEnd: currentPeriodEnd,
+      nextPaymentDate: nextPaymentDate, // Next payment date from actual Stripe subscription
+      cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
       planName: product.name || (user.app_metadata?.planName as string | undefined) || 'Unknown Plan',
       amount: price.unit_amount || 0,
       currency: price.currency || 'usd',
       interval: price.recurring?.interval || 'month',
-      trialEnd: (subscription as any).trial_end ? (subscription as any).trial_end * 1000 : undefined,
+      trialEnd: subscription.trial_end ? subscription.trial_end * 1000 : undefined,
+      paymentMethodUpdateLink,
+      subscriptionManagementLink,
     };
   } catch (error) {
     console.error('Error fetching subscription details:', error);
