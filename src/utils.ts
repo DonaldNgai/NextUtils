@@ -47,6 +47,3 @@ export function formatCurrency(
 
   return new Intl.NumberFormat(locale, formatOptions).format(amount);
 }
-
-// Re-export for compatibility with @/lib/utils imports
-export * from './utils';

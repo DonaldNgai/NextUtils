@@ -21,5 +21,6 @@ export default defineConfig({
     '@tanstack/react-table',
     'server-only',
   ],
+  noExternal: ['clsx', 'tailwind-merge'],
   outDir: 'dist',
 });
