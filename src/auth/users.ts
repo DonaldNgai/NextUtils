@@ -99,10 +99,13 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 
   try {
     const managementClient = await getAuth0ManagementClient();
-    const response = await managementClient.users.getByEmail(email);
+    const response = await managementClient.users.getAll({
+      q: `email:"${email}"`,
+      per_page: 1,
+    });
     
-    // getByEmail returns an array directly, not a JSONApiResponse
-    const users = Array.isArray(response) ? response : response.data || [];
+    // getAll returns a JSONApiResponse with data array
+    const users = response.data || [];
     
     if (!users || users.length === 0) {
       return null;

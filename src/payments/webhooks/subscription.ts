@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { stripe } from '../stripe';
 import { getAuth0ManagementClient } from '../../auth/getAuth0ManagementClient';
 import { findUserByStripeCustomerId, ensureStripeCustomerId } from './helpers';
 
