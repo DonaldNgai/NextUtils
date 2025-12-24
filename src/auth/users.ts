@@ -46,7 +46,7 @@ function convertAuth0UserToUser(
  *                      Recommended: Pass the auth0 instance from your app's lib/auth0.ts
  */
 export async function getCurrentUserFullDetails(auth0Client?: Auth0Client): Promise<User | null> {
-  const auth0User = await getAuth0User(auth0Client);
+  const auth0User = await getAuth0User(auth0Client as Auth0Client);
   if (!auth0User?.sub) {
     return null;
   }
@@ -133,7 +133,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
  *                      Recommended: Pass the auth0 instance from your app's lib/auth0.ts
  */
 export async function updateUserMetadata(metadata: Record<string, any>, auth0Client?: Auth0Client): Promise<boolean> {
-  const auth0User = await getAuth0User(auth0Client);
+  const auth0User = await getAuth0User(auth0Client as Auth0Client);
   if (!auth0User?.sub) {
     throw new Error('User not authenticated');
   }
@@ -180,7 +180,7 @@ export async function upsertUserMetadata(metadata: Record<string, any>, auth0Cli
  *                      Recommended: Pass the auth0 instance from your app's lib/auth0.ts
  */
 export async function updateUserPassword(newPassword: string, auth0Client?: Auth0Client): Promise<void> {
-  const auth0User = await getAuth0User(auth0Client);
+  const auth0User = await getAuth0User(auth0Client as Auth0Client);
   if (!auth0User?.sub) {
     throw new Error('User not authenticated');
   }
