@@ -1,3 +1,4 @@
+import { Auth0Client } from '@auth0/nextjs-auth0/server';
 import { getAuth0User } from './sessionUtils';
 import { getAuth0ManagementClient } from './getAuth0ManagementClient';
 /**
@@ -40,9 +41,12 @@ function convertAuth0UserToUser(
 
 /**
  * Get the current Auth0 user with full details from Management API
+ * 
+ * @param auth0Client - Optional Auth0Client instance. If not provided, will create one internally.
+ *                      Recommended: Pass the auth0 instance from your app's lib/auth0.ts
  */
-export async function getCurrentUserFullDetails(): Promise<User | null> {
-  const auth0User = await getAuth0User();
+export async function getCurrentUserFullDetails(auth0Client?: Auth0Client): Promise<User | null> {
+  const auth0User = await getAuth0User(auth0Client);
   if (!auth0User?.sub) {
     return null;
   }
@@ -123,9 +127,13 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 /**
  * Update user metadata (user-editable data like name, preferences, etc.)
  * This safely merges with existing user_metadata
+ * 
+ * @param metadata - The metadata to update
+ * @param auth0Client - Optional Auth0Client instance. If not provided, will create one internally.
+ *                      Recommended: Pass the auth0 instance from your app's lib/auth0.ts
  */
-export async function updateUserMetadata(metadata: Record<string, any>): Promise<boolean> {
-  const auth0User = await getAuth0User();
+export async function updateUserMetadata(metadata: Record<string, any>, auth0Client?: Auth0Client): Promise<boolean> {
+  const auth0User = await getAuth0User(auth0Client);
   if (!auth0User?.sub) {
     throw new Error('User not authenticated');
   }
@@ -154,17 +162,25 @@ export async function updateUserMetadata(metadata: Record<string, any>): Promise
 /**
  * Upsert user metadata - updates or creates user_metadata fields
  * This is an alias for updateUserMetadata for clarity
+ * 
+ * @param metadata - The metadata to update
+ * @param auth0Client - Optional Auth0Client instance. If not provided, will create one internally.
+ *                      Recommended: Pass the auth0 instance from your app's lib/auth0.ts
  */
-export async function upsertUserMetadata(metadata: Record<string, any>): Promise<boolean> {
-  return updateUserMetadata(metadata);
+export async function upsertUserMetadata(metadata: Record<string, any>, auth0Client?: Auth0Client): Promise<boolean> {
+  return updateUserMetadata(metadata, auth0Client);
 }
 
 /**
  * Update user password using Auth0 Management API
  * This is the recommended method for Auth0 with Next.js
+ * 
+ * @param newPassword - The new password
+ * @param auth0Client - Optional Auth0Client instance. If not provided, will create one internally.
+ *                      Recommended: Pass the auth0 instance from your app's lib/auth0.ts
  */
-export async function updateUserPassword(newPassword: string): Promise<void> {
-  const auth0User = await getAuth0User();
+export async function updateUserPassword(newPassword: string, auth0Client?: Auth0Client): Promise<void> {
+  const auth0User = await getAuth0User(auth0Client);
   if (!auth0User?.sub) {
     throw new Error('User not authenticated');
   }
