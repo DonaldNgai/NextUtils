@@ -1,5 +1,3 @@
-'use server';
-
 import Stripe from 'stripe';
 import { stripe, getPaymentMethodUpdateLink, getSubscriptionManagementLink } from './stripe';
 import { getCurrentUserFullDetails } from '../auth/users';

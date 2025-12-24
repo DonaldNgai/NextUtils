@@ -1,5 +1,3 @@
-'use server';
-
 import { ManagementClient } from 'auth0';
 
 /**

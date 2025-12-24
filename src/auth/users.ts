@@ -1,5 +1,3 @@
-'use server';
-
 import { getAuth0User } from './sessionUtils';
 import { getAuth0ManagementClient } from './getAuth0ManagementClient';
 /**
