@@ -1,7 +1,14 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: [
+    'src/index.ts',
+    'src/server/preferences.ts',
+    'src/payments/stripe.ts',
+    'src/payments/subscription.ts',
+    'src/auth/index.ts',
+    'src/auth/users.ts',
+  ],
   format: ['cjs', 'esm'],
   dts: true,
   splitting: false,

@@ -2,42 +2,43 @@
   "name": "@DonaldNgai/next-utils",
   "version": "1.0.0",
   "description": "Next.js utility functions",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./src/index.ts",
-      "require": "./src/index.ts",
-      "types": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     },
     "./server/preferences": {
-      "import": "./src/server/preferences.ts",
-      "require": "./src/server/preferences.ts",
-      "types": "./src/server/preferences.ts"
+      "types": "./dist/server/preferences.d.ts",
+      "import": "./dist/server/preferences.mjs",
+      "require": "./dist/server/preferences.js"
     },
     "./payments/stripe": {
-      "import": "./src/payments/stripe.ts",
-      "require": "./src/payments/stripe.ts",
-      "types": "./src/payments/stripe.ts"
+      "types": "./dist/payments/stripe.d.ts",
+      "import": "./dist/payments/stripe.mjs",
+      "require": "./dist/payments/stripe.js"
     },
     "./payments/subscription": {
-      "import": "./src/payments/subscription.ts",
-      "require": "./src/payments/subscription.ts",
-      "types": "./src/payments/subscription.ts"
+      "types": "./dist/payments/subscription.d.ts",
+      "import": "./dist/payments/subscription.mjs",
+      "require": "./dist/payments/subscription.js"
     },
     "./auth": {
-      "import": "./src/auth/index.ts",
-      "require": "./src/auth/index.ts",
-      "types": "./src/auth/index.ts"
+      "types": "./dist/auth/index.d.ts",
+      "import": "./dist/auth/index.mjs",
+      "require": "./dist/auth/index.js"
     },
     "./auth/users": {
-      "import": "./src/auth/users.ts",
-      "require": "./src/auth/users.ts",
-      "types": "./src/auth/users.ts"
+      "types": "./dist/auth/users.d.ts",
+      "import": "./dist/auth/users.mjs",
+      "require": "./dist/auth/users.js"
     }
   },
   "files": [
+    "dist",
     "src"
   ],
   "scripts": {
