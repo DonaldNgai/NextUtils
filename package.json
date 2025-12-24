@@ -1,6 +1,6 @@
 {
   "name": "@DonaldNgai/next-utils",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Next.js utility functions",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
