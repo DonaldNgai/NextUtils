@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { redirect } from 'next/navigation';
 import { getCurrentUserFullDetails } from '../auth/users';
+import type { Auth0Client } from '@auth0/nextjs-auth0/server';
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -12,11 +13,11 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
  */
 async function getOrFindStripeCustomerId(
   userId: string,
-  appMetadata?: Record<string, any> | null
+  appMetadata: Record<string, any> | null
 ): Promise<string | undefined> {
   // First, check if user already has a stripeCustomerId in app_metadata
   const existingCustomerId = appMetadata?.stripeCustomerId as string | undefined;
-  
+
   if (existingCustomerId) {
     // Verify the customer still exists in Stripe
     try {
@@ -25,7 +26,6 @@ async function getOrFindStripeCustomerId(
         return existingCustomerId;
       }
     } catch (error) {
-      // Customer doesn't exist, continue to search
       console.log(`Customer ${existingCustomerId} not found in Stripe, searching for existing customer`);
     }
   }
@@ -53,8 +53,8 @@ async function getOrFindStripeCustomerId(
 /**
  * Create a checkout session for subscription (redirects to Stripe hosted checkout)
  */
-export async function createCheckoutSession(priceId: string) {
-  const user = await getCurrentUserFullDetails();
+export async function createCheckoutSession(priceId: string, auth0: Auth0Client) {
+  const user = await getCurrentUserFullDetails(auth0);
   if (!user) {
     redirect(`/pricing?priceId=${priceId}`);
   }
@@ -95,8 +95,8 @@ export async function createCheckoutSession(priceId: string) {
  * Create an embedded checkout session for subscription
  * Returns the client secret for use with Stripe Elements
  */
-export async function createEmbeddedCheckoutSession(priceId: string) {
-  const user = await getCurrentUserFullDetails();
+export async function createEmbeddedCheckoutSession(priceId: string, auth0: Auth0Client) {
+  const user = await getCurrentUserFullDetails(auth0);
   if (!user) {
     throw new Error('User not authenticated');
   }
@@ -177,11 +177,12 @@ export async function createRentalCheckoutSession(
     customerName: string;
     customerEmail: string;
     customerPhone?: string;
-  }
+  },
+  auth0: Auth0Client
 ) {
   // Rental checkout doesn't require authentication - guests can book
   // We'll offer account creation on the success page
-  const user = await getCurrentUserFullDetails();
+  const user = await getCurrentUserFullDetails(auth0);
 
   const session = await stripe.checkout.sessions.create({
     ui_mode: 'embedded',
@@ -299,8 +300,8 @@ async function getOrCreatePortalConfiguration(): Promise<Stripe.BillingPortal.Co
  * Create a customer portal session for managing subscription
  * Uses Stripe's Customer Portal to handle all subscription and payment management
  */
-export async function createCustomerPortalSession() {
-  const user = await getCurrentUserFullDetails();
+export async function createCustomerPortalSession(auth0: Auth0Client) {
+  const user = await getCurrentUserFullDetails(auth0);
   if (!user) {
     redirect('/pricing');
   }
@@ -329,8 +330,8 @@ export async function createCustomerPortalSession() {
  * Get customer portal session URL for payment method updates (returns URL without redirecting)
  * Uses Stripe's Customer Portal to handle payment method management
  */
-export async function getPaymentMethodUpdateLink(): Promise<string | null> {
-  const user = await getCurrentUserFullDetails();
+export async function getPaymentMethodUpdateLink(auth0: Auth0Client): Promise<string | null> {
+  const user = await getCurrentUserFullDetails(auth0);
   if (!user) {
     return null;
   }
@@ -362,9 +363,9 @@ export async function getPaymentMethodUpdateLink(): Promise<string | null> {
 /**
  * Get customer portal session URL for subscription management (returns URL without redirecting)
  */
-export async function getSubscriptionManagementLink(): Promise<string | null> {
+export async function getSubscriptionManagementLink(auth0: Auth0Client): Promise<string | null> {
   // Same as payment method update link - both use the customer portal
-  return getPaymentMethodUpdateLink();
+  return getPaymentMethodUpdateLink(auth0);
 }
 
 /**

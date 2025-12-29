@@ -1,10 +1,10 @@
 import { getCurrentUserFullDetails } from './users';
-
+import type { Auth0Client } from '@auth0/nextjs-auth0/server';
 /**
  * Get team ID for the current user from Auth0 app_metadata
  */
-export async function getTeamIdForCurrentUser(): Promise<number | null> {
-  const user = await getCurrentUserFullDetails();
+export async function getTeamIdForCurrentUser(auth0: Auth0Client): Promise<number | null> {
+  const user = await getCurrentUserFullDetails(auth0);
   if (!user) {
     return null;
   }
@@ -17,8 +17,11 @@ export async function getTeamIdForCurrentUser(): Promise<number | null> {
 /**
  * Check if a user is associated with a team
  */
-export async function isUserAssociatedWithTeam(teamId: number): Promise<boolean> {
-  const userTeamId = await getTeamIdForCurrentUser();
+export async function isUserAssociatedWithTeam(
+  teamId: number,
+  auth0: Auth0Client
+): Promise<boolean> {
+  const userTeamId = await getTeamIdForCurrentUser(auth0);
   return userTeamId === teamId;
 }
 
@@ -27,26 +30,8 @@ export async function isUserAssociatedWithTeam(teamId: number): Promise<boolean>
  * Note: This requires searching all users, which may be slow for large user bases
  * Consider using a more efficient approach if you have many users
  */
-export async function getTeamMembers(teamId: number) {
-  // try {
-  //   const managementClient = getAuth0ManagementClient();
-    
-  //   // Get all users (this is a limitation - Auth0 doesn't support filtering by app_metadata)
-  //   // For better performance, consider maintaining a separate index or using a different approach
-  //   const users = await managementClient.users.getAll({
-  //     per_page: 100,
-  //     include_totals: true,
-  //   });
-
-  //   // Filter users by teamId in app_metadata
-  //   const teamMembers = users.data.filter(
-  //     (user) => (user.app_metadata?.teamId as number) === teamId
-  //   );
-
-  //   return teamMembers;
-  // } catch (error) {
-  //   console.warn('Error getting team members from Auth0:', error);
-  //   return [];
-  // }
+export async function getTeamMembers(teamId: number, auth0: Auth0Client) {
+  // Placeholder: You would need to implement fetching users using Auth0 Management API, passing auth0
+  // For now, this returns an empty array as before.
   return [];
 }

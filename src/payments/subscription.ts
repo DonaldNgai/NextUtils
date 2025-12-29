@@ -1,7 +1,11 @@
 import Stripe from 'stripe';
 import { stripe, getPaymentMethodUpdateLink, getSubscriptionManagementLink } from './stripe';
 import { getCurrentUserFullDetails } from '../auth/users';
+import type { Auth0Client } from '@auth0/nextjs-auth0/server';
 
+/**
+ * All interfaces preserved as before.
+ */
 export interface SubscriptionDetails {
   id: string;
   status: string;
@@ -53,8 +57,8 @@ export interface UpcomingPayment {
 /**
  * Get subscription details for the current user
  */
-export async function getSubscriptionDetails(): Promise<SubscriptionDetails | null> {
-  const user = await getCurrentUserFullDetails();
+export async function getSubscriptionDetails(auth0: Auth0Client): Promise<SubscriptionDetails | null> {
+  const user = await getCurrentUserFullDetails(auth0);
   if (!user?.email) {
     return null;
   }
@@ -190,8 +194,8 @@ export async function getSubscriptionDetails(): Promise<SubscriptionDetails | nu
     
     // Get payment method update and subscription management links
     const [paymentMethodUpdateLink, subscriptionManagementLink] = await Promise.all([
-      getPaymentMethodUpdateLink(),
-      getSubscriptionManagementLink(),
+      getPaymentMethodUpdateLink(auth0),
+      getSubscriptionManagementLink(auth0),
     ]);
     
     return {
@@ -218,8 +222,8 @@ export async function getSubscriptionDetails(): Promise<SubscriptionDetails | nu
 /**
  * Get payment history for the current user
  */
-export async function getPaymentHistory(limit: number = 20): Promise<PaymentHistoryItem[]> {
-  const user = await getCurrentUserFullDetails();
+export async function getPaymentHistory(limit: number = 20, auth0: Auth0Client): Promise<PaymentHistoryItem[]> {
+  const user = await getCurrentUserFullDetails(auth0);
   if (!user?.email) {
     return [];
   }
@@ -295,8 +299,8 @@ export async function getPaymentHistory(limit: number = 20): Promise<PaymentHist
 /**
  * Get saved payment methods (cards) for the current user
  */
-export async function getPaymentMethods(): Promise<PaymentMethod[]> {
-  const user = await getCurrentUserFullDetails();
+export async function getPaymentMethods(auth0?: Auth0Client): Promise<PaymentMethod[]> {
+  const user = await getCurrentUserFullDetails(auth0);
   if (!user?.email) {
     return [];
   }
@@ -341,8 +345,8 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
 /**
  * Get upcoming payments/invoices for the current user
  */
-export async function getUpcomingPayments(): Promise<UpcomingPayment[]> {
-  const user = await getCurrentUserFullDetails();
+export async function getUpcomingPayments(auth0?: Auth0Client): Promise<UpcomingPayment[]> {
+  const user = await getCurrentUserFullDetails(auth0);
   if (!user?.email) {
     return [];
   }

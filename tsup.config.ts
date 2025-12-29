@@ -22,6 +22,11 @@ export default defineConfig({
     'server-only',
     'clsx',
     'tailwind-merge',
+    'next',
+    'next/script',
+    'next/link',
+    'next/navigation',
+    'next/headers',
   ],
   outDir: 'dist',
 });

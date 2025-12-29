@@ -12,7 +12,7 @@ import { getCurrentUserFullDetails } from './users';
  * @returns The authenticated user
  * @throws Redirects to login if not authenticated
  */
-export async function requireAuthServer(returnTo: string, auth0Client?: Auth0Client) {
+export async function requireAuthServer(returnTo: string, auth0Client: Auth0Client) {
   const user = await getCurrentUserFullDetails(auth0Client);
 
   if (!user) {
