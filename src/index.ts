@@ -1,6 +1,6 @@
 export * from './utils';
-export * from './hooks/use-data-table-instance';
-export * from './hooks/use-mobile';
+export * from '../../ui/src/hooks/use-data-table-instance';
+export * from '../../ui/src/hooks/use-mobile';
 // Auth exports removed from main index to prevent client-side bundling of server-only code
 // Import directly from '@DonaldNgai/next-utils/auth' or '@DonaldNgai/next-utils/auth/users' in server components
 export * from './types/preferences';

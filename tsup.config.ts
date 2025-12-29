@@ -20,7 +20,8 @@ export default defineConfig({
     '@auth0/nextjs-auth0',
     '@tanstack/react-table',
     'server-only',
+    'clsx',
+    'tailwind-merge',
   ],
-  noExternal: ['clsx', 'tailwind-merge'],
   outDir: 'dist',
 });

@@ -18,6 +18,6 @@
     "isolatedModules": true,
     "noEmit": false
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../ui/src/hooks"],
   "exclude": ["node_modules", "dist"]
 }
