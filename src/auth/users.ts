@@ -45,7 +45,7 @@ function convertAuth0UserToUser(
  * @param auth0Client - Optional Auth0Client instance. If not provided, will create one internally.
  *                      Recommended: Pass the auth0 instance from your app's lib/auth0.ts
  */
-export async function getCurrentUserFullDetails(auth0Client?: Auth0Client): Promise<User | null> {
+export async function getCurrentUserFullDetails(auth0Client: Auth0Client): Promise<User | null> {
   const auth0User = await getAuth0User(auth0Client as Auth0Client);
   if (!auth0User?.sub) {
     return null;
