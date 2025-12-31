@@ -299,7 +299,7 @@ export async function getPaymentHistory(limit: number = 20, auth0: Auth0Client):
 /**
  * Get saved payment methods (cards) for the current user
  */
-export async function getPaymentMethods(auth0?: Auth0Client): Promise<PaymentMethod[]> {
+export async function getPaymentMethods(auth0: Auth0Client): Promise<PaymentMethod[]> {
   const user = await getCurrentUserFullDetails(auth0);
   if (!user?.email) {
     return [];
@@ -345,7 +345,7 @@ export async function getPaymentMethods(auth0?: Auth0Client): Promise<PaymentMet
 /**
  * Get upcoming payments/invoices for the current user
  */
-export async function getUpcomingPayments(auth0?: Auth0Client): Promise<UpcomingPayment[]> {
+export async function getUpcomingPayments(auth0: Auth0Client): Promise<UpcomingPayment[]> {
   const user = await getCurrentUserFullDetails(auth0);
   if (!user?.email) {
     return [];

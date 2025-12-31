@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { Auth0Client } from '@auth0/nextjs-auth0/server';
 import { getCurrentUserFullDetails } from './users';
 
+// Used by the UI Components
+
 /**
  * Server-side function to require authentication
  * Redirects to login if user is not authenticated
@@ -18,6 +20,7 @@ export async function requireAuthServer(returnTo: string, auth0Client: Auth0Clie
   if (!user) {
     // Encode the return URL and redirect to Auth0 login
     const encodedReturnTo = encodeURIComponent(returnTo);
+    console.log('encodedReturnTo:', encodedReturnTo);
     redirect(`/auth/login?returnTo=${encodedReturnTo}`);
   }
 
@@ -32,7 +35,7 @@ export async function requireAuthServer(returnTo: string, auth0Client: Auth0Clie
  *                      Recommended: Pass the auth0 instance from your app's lib/auth0.ts
  * @returns Object with user and isAuthenticated flag
  */
-export async function checkAuthServer(auth0Client?: Auth0Client) {
+export async function checkAuthServer(auth0Client: Auth0Client) {
   const user = await getCurrentUserFullDetails(auth0Client);
   return {
     user,
