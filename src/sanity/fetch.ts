@@ -1,8 +1,8 @@
 import type { ClientPerspective, QueryParams } from "next-sanity";
 import { draftMode } from "next/headers";
 
-import { client } from "@/app/lib/sanity/client";
-import { token } from "@/app/lib/sanity/token";
+import { client } from "./client";
+import { token } from "./token";
 
 /**
  * Used to fetch data in Server Components, it has built in support for handling Draft Mode and perspectives.
@@ -35,6 +35,7 @@ export async function sanityFetch<const QueryString extends string>({
     perspective === "previewDrafts" ||
     process.env.VERCEL_ENV === "preview";
   if (perspective === "previewDrafts") {
+    // Draft mode - no caching, always fetch fresh data
     return client.fetch(query, await params, {
       stega,
       perspective: "previewDrafts",
@@ -43,16 +44,17 @@ export async function sanityFetch<const QueryString extends string>({
       // The `previewDrafts` perspective isn't available on the API CDN
       useCdn: false,
       // And we can't cache the responses as it would slow down the live preview experience
-      next: { revalidate: 0 },
     });
   }
+  
+  // Published perspective - use CDN for caching
+  // Note: Caching should be handled at the route level using Next.js route segment config
+  // (e.g., `export const revalidate = 60` in your page/route file)
   return client.fetch(query, await params, {
     stega,
     perspective: "published",
     // The `published` perspective is available on the API CDN
     useCdn: true,
     // Only enable Stega in production if it's a Vercel Preview Deployment, as the Vercel Toolbar supports Visual Editing
-    // When using the `published` perspective we use time-based revalidation to match the time-to-live on Sanity's API CDN (60 seconds)
-    next: { revalidate: 60 },
   });
 }

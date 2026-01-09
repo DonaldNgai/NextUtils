@@ -9,6 +9,8 @@ export default defineConfig({
     'src/auth/index.ts',
     'src/auth/users.ts',
     'src/email/index.ts',
+    'src/sanity/index.ts',
+    'src/sanity/client-utils.ts',
   ],
   format: ['cjs', 'esm'],
   dts: true,
@@ -28,6 +30,8 @@ export default defineConfig({
     'next/link',
     'next/navigation',
     'next/headers',
+    'next-sanity',
+    '@sanity/image-url',
   ],
   outDir: 'dist',
 });
