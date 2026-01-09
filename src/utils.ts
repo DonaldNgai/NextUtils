@@ -47,3 +47,17 @@ export function formatCurrency(
 
   return new Intl.NumberFormat(locale, formatOptions).format(amount);
 }
+
+/**
+ * Handle and log errors consistently
+ */
+export function handleError(error: unknown): void {
+  if (error instanceof Error) {
+    console.error('Error:', error.message);
+    console.error('Stack:', error.stack);
+  } else if (typeof error === 'object' && error !== null) {
+    console.error('Error:', JSON.stringify(error, null, 2));
+  } else {
+    console.error('Unknown error:', error);
+  }
+}

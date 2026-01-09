@@ -8,6 +8,7 @@ export default defineConfig({
     'src/payments/subscription.ts',
     'src/auth/index.ts',
     'src/auth/users.ts',
+    'src/email/index.ts',
   ],
   format: ['cjs', 'esm'],
   dts: true,

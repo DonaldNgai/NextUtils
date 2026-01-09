@@ -35,6 +35,11 @@
       "types": "./dist/auth/users.d.ts",
       "import": "./dist/auth/users.mjs",
       "require": "./dist/auth/users.js"
+    },
+    "./email": {
+      "types": "./dist/email/index.d.ts",
+      "import": "./dist/email/index.mjs",
+      "require": "./dist/email/index.js"
     }
   },
   "files": [
@@ -65,6 +70,7 @@
   "dependencies": {
     "@auth0/auth0-react": "^2.11.0",
     "@auth0/auth0-spa-js": "^2.11.0",
+    "@mailerlite/mailerlite-nodejs": "^1.4.0",
     "auth0": "^4.8.0",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
