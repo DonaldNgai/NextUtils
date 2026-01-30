@@ -50,6 +50,11 @@
       "types": "./dist/sanity/client-utils.d.ts",
       "import": "./dist/sanity/client-utils.mjs",
       "require": "./dist/sanity/client-utils.js"
+    },
+    "./crypto": {
+      "types": "./dist/crypto/index.d.ts",
+      "import": "./dist/crypto/index.mjs",
+      "require": "./dist/crypto/index.js"
     }
   },
   "files": [
