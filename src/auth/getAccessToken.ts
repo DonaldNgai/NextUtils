@@ -4,12 +4,10 @@ type TokenResult = { token: string; expiresAt: number; scope?: string };
 
 export async function getAuthenticatedAccessToken(
     auth0: Auth0Client,
-    audience?: string,
 ): Promise<{ isValid: boolean; token: TokenResult | null }> {
     try {
-        const tokenResult = audience 
-            ? await auth0.getAccessToken({ audience })
-            : await auth0.getAccessToken();
+        // In Auth0 SDK v4, audience is configured at Auth0Client initialization, not here
+        const tokenResult = await auth0.getAccessToken();
 
         if (!tokenResult || !tokenResult.token || !tokenResult.expiresAt) {
             return {
