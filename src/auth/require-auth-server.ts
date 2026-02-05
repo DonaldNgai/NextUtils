@@ -1,6 +1,10 @@
 import { redirect } from 'next/navigation';
-import { Auth0Client } from '@auth0/nextjs-auth0/server';
+import type { Auth0Client } from '@auth0/nextjs-auth0/server';
 import { getCurrentUserFullDetails } from './users';
+
+// Re-export Auth0Client type for consumers to avoid version conflicts
+// Using `type` export ensures this is only used for type checking
+export type Auth0ClientType = Auth0Client;
 
 // Used by the UI Components
 
