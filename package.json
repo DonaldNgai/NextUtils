@@ -55,6 +55,11 @@
       "types": "./dist/crypto/index.d.ts",
       "import": "./dist/crypto/index.mjs",
       "require": "./dist/crypto/index.js"
+    },
+    "./types/preferences": {
+      "types": "./dist/types/preferences.d.ts",
+      "import": "./dist/types/preferences.mjs",
+      "require": "./dist/types/preferences.js"
     }
   },
   "files": [

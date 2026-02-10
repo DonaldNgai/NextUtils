@@ -4,6 +4,7 @@ export default defineConfig({
   entry: [
     'src/index.ts',
     'src/server/preferences.ts',
+    'src/types/preferences.ts',
     'src/payments/stripe.ts',
     'src/payments/subscription.ts',
     'src/auth/index.ts',
